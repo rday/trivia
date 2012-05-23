@@ -13,7 +13,7 @@ Events:
    After all players in the game are ready, this event
    is sent out synch everybody and start their games
 
-Objects:
+Mongo Objects:
 game:
 {'gameid': int,
  'name': string,
@@ -96,8 +96,8 @@ function handleSocket(socket) {
         function(gameobj) {
             console.log('Got Ready ' + socket.handshake.sessionID);
             var gameobj = store.gameobj;
-
             var gameid = gameobj['game'];
+
             if( gameid in games ) {
                 console.log('Ready count: ' + games[gameid]);
                 games[gameid]['waiting'] -= 1;
@@ -122,6 +122,32 @@ function handleSocket(socket) {
             if( store == undefined )
                 return;
             var gameobj = store.gameobj;
+            var gameid = gameobj['game'];
+
+            if( gameid in games ) {
+                console.log('Ready count: ' + games[gameid]);
+                games[gameid]['waiting'] -= 1;
+                if( games[gameid]['waiting'] == 0 ) {
+                    console.log('Emitting start');
+                    socket.emit('starttimer');
+                    socket.broadcast.emit('starttimer');
+                }
+
+                // Pull the player from the DB
+                db.collection('games')
+                    .update({'_id': gameid},
+                            {'$pull': {'players': player}},
+                            {safe: true},
+                            function(err, doc) {
+                                if( err ) {
+                                    res.send('Error in update: ' + err, 500);
+                                    return;
+                                } else {
+                                    // We now have another player waiting
+                                    res.send('Success', 200);
+                                }
+                            });
+            }
             socket.broadcast.emit('playerleft', gameobj);
         });
 }
@@ -135,22 +161,7 @@ app.configure(function() {
                                 key: 'express.sid'}));
     app.use(express.static(__dirname + '/public'));
 });
-app.get('/test/:id',
-        function(req, res) {
-            console.log(req.params.id);
-            res.header('Content-type: text/html;charset=utf8');
-            res.end('<!DOCTYPE html><head><meta charset="utf-8"></head><body><p>'+req.params.id+'</p></body>');
-        });
-/*
-app.get('/',
-        function(req, res) {
-            db.collection('twits')
-                .find({},{text:1})
-                .skip(Math.random()*10000)
-                .limit(30)
-                .toArray(send(res));
-        });
-*/
+
 app.get('/games',
         function(req, res) {
             db.collection('games')
@@ -185,7 +196,7 @@ app.post('/games/',
                         if( err ) {
                             res.send('Error in game creation: ' + err, 500);
                         } else {
-                            console.log('/' + doc[0]['_id']);
+                            // Setup socket on new game
                             var sock = io.of('/' + doc[0]['_id'])
                                             .on('connection', handleSocket);
                             var game = {'waiting':0,'socket':sock};
@@ -214,6 +225,7 @@ app.put('/games/:id',
                                 res.send('Error in update: ' + err, 500);
                                 return;
                             } else {
+                                // We now have another player waiting
                                 games[gameid]['waiting'] += 1;
                                 res.send('Success', 200);
                             }
