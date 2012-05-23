@@ -76,8 +76,8 @@
     function nextQuestion() {
         var question = questions[q];
 
-        $('#gamescreen').html('<fieldset><legend>'+question['word']+'</legend>'+
-                '
+//        $('#gamescreen').html('<fieldset><legend>'+question['word']+'</legend>'+
+  //              '
     }
 
     function countDown() {
@@ -93,7 +93,7 @@
 
     function startGame() {
         // The server will know who we are by the session
-        socket.emit('ready');
+        socket.emit('playerready');
     }
 
     function joingame() {
@@ -124,7 +124,7 @@
 
                         // Whenever another player signals ready,
                         // we are told.
-                        socket.on('gotready',
+                        socket.on('playerready',
                             function(gameobj) {
                                 console.log('Got ready');
                                 console.log(gameobj);
@@ -141,13 +141,13 @@
                             });
 
                         // If a player leaves we are told
-                        socket.of('left',
+                        socket.of('playerleft',
                             function(gameobj) {
                                 console.log('Somebody left: ' + gameobj['player']);
                             });
 
                         // When a new player joins the game, we are told
-                        socket.on('join',
+                        socket.on('playerjoin',
                             function(player) {
                                 console.log(player);
                                 var item = $('<li>'+player['player']+
@@ -162,7 +162,7 @@
                         // Tell the server we have joined the game
                         var gameobj = {'game': gameid,
                                        'player': $('#playername').val()};
-                        socket.emit('joinserver', gameobj);
+                        socket.emit('playerjoin', gameobj);
                     });
     }
 

@@ -1,4 +1,19 @@
 /**
+Events:
+'playerjoin':
+   When a player joins the game, all other players are notified
+   and the server records the player in the games
+'playerready':
+   When a player is ready this event is sent to the server,
+   and then echoed to all the other players as well
+'playerleft'
+   When a player disconnects, they are removed from the game
+   and all other players are notified
+'starttimer':
+   After all players in the game are ready, this event
+   is sent out synch everybody and start their games
+
+Objects:
 game:
 {'gameid': int,
  'name': string,
@@ -65,7 +80,7 @@ function handleSocket(socket) {
     console.log('Handling connection for ' + socket.handshake.sessionID);
     var store = socket.handshake.session;
 
-    socket.on('joinserver',
+    socket.on('playerjoin',
         function(gameobj) {
             console.log('Got Join ' + socket.handshake.sessionID);
             var gameid = gameobj['game'];
@@ -73,11 +88,11 @@ function handleSocket(socket) {
 
             if( gameid in games ) {
                 store.gameobj = gameobj;
-                socket.broadcast.emit('join', {'player': player, 'status': 'waiting'});
+                socket.broadcast.emit('playerjoin', {'player': player, 'status': 'waiting'});
             }
         });
 
-    socket.on('ready',
+    socket.on('playerready',
         function(gameobj) {
             console.log('Got Ready ' + socket.handshake.sessionID);
             var gameobj = store.gameobj;
@@ -92,16 +107,22 @@ function handleSocket(socket) {
                     socket.broadcast.emit('starttimer');
                 } else {
                     console.log('Emitting ready');
-                    socket.emit('gotready', gameobj);
-                    socket.broadcast.emit('gotready', gameobj);
+                    socket.emit('playerready', gameobj);
+                    socket.broadcast.emit('playerready', gameobj);
                 }
             }
         });
 
     socket.on('disconnect',
         function() {
+            // On the iPad, if it goes to sleep and then comes back,
+            // we get a disconnect event without a session so our
+            // store is undefined. I'm sure there is a better explanation
+            // here, but this works for now.
+            if( store == undefined )
+                return;
             var gameobj = store.gameobj;
-            socket.broadcast.emit('left', gameobj);
+            socket.broadcast.emit('playerleft', gameobj);
         });
 }
 
