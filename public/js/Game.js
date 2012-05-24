@@ -52,11 +52,19 @@
   GamesCollectionView = Backbone.View.extend({
     el: $("#games"),
     initialize: function() {
-        $("#newgame").val('');
+        // When the collection is updated, re-render
+        // in the correct context
+        _(this).bindAll('render');
+        this.collection.bind('add', this.render);
         $("#game-list").html('');
         this.render();
     },
+    add: function() {
+        console.log('wtf');
+        console.log(this);
+    },
     render: function() {
+        $("#game-list").html('');
         this.collection.each(
             function(game) {
                 var li = $("<li>" + game.get("name") + "</li>");
