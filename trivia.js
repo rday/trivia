@@ -23,7 +23,8 @@ game:
 
 playerarray:
 {'name':string,
- 'score':int
+ 'score':int,
+ 'status':string
 }
 */
 
@@ -209,7 +210,7 @@ app.post('/games/',
 app.put('/games/:id',
         function(req, res) {
             var gameid = new BSON.ObjectID.createFromHexString(req.params.id);
-            var player = {'name': req.body.player, 'score': 0};
+            var player = {'name': req.body.player, 'score': 0, 'status': 'waiting'};
 
             if( player['name'].length == 0 ) {
                 res.send('No player specified', 400)
