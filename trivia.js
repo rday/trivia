@@ -117,6 +117,10 @@ function handleSocket(socket) {
             }
         });
 
+    socket.on('playerleft',
+        function() {
+            socket.disconnect();
+        });
     socket.on('disconnect',
         function() {
             // On the iPad, if it goes to sleep and then comes back,
