@@ -26,6 +26,7 @@
     initialize: function(options) {
         var that = this;
         this.game = options.game;
+        this.countDown = 4;
         console.log('Initializing game view for ' + this.game.get('name'));
 
         // Add player to this game's waiting list
@@ -43,7 +44,7 @@
                 // this.. err, that.
                 that.socket.on('connect',
                     function() {
-                        that.setupSocket(that.game);
+                        that.setupSocket(that);
                         // Tell the server we have joined the game
                         var gameobj = {'game': that.game.get('_id'),
                                        'player': config.get('player')};
@@ -64,19 +65,31 @@
         console.log('Logging ' + this.game.toJSON());
         this.socket.emit('playerready', this.game.toJSON());
     },
-    setupSocket: function(game) {
+    setupSocket: function(gameview) {
         var socket = this.socket;
-        console.log(this);
         console.log('Connected');
 
+        // Not used
         socket.on('startgame',
             function(data) {
                 console.log(data);
             });
 
+        // When the server determines everyone is in,
+        // the count down timer starts.
         socket.on('starttimer',
             function() {
-                tmrCountDown = setInterval(countDown, 1000);
+                gameview.tmrCountDown = setInterval(
+                    function() {
+                        if( gameview.countDown > 0 ) {
+                            $(gameview.el).html(gameview.countDown--);
+                        } else {
+                            $(gameview.el).html('Go!!');
+                            clearInterval(gameview.tmrCountDown);
+                            v = new QuestionView({game: gameview.game,
+                                                  socket:socket});
+                        }
+                    }, 1000);
             });
 
         // Whenever another player signals ready,
