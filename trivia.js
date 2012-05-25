@@ -80,6 +80,8 @@ io.set('authorization',
 function handleSocket(socket) {
     console.log('Handling connection for ' + socket.handshake.sessionID);
     var store = socket.handshake.session;
+    if( store == undefined )
+        return;
 
     socket.on('playerjoin',
         function(gameobj) {
@@ -89,6 +91,7 @@ function handleSocket(socket) {
 
             if( gameid in games ) {
                 store.gameobj = gameobj;
+                socket.emit('playerjoin', {'player': player, 'status': 'waiting'});
                 socket.broadcast.emit('playerjoin', {'player': player, 'status': 'waiting'});
             }
         });
@@ -123,6 +126,8 @@ function handleSocket(socket) {
             if( store == undefined )
                 return;
             var gameobj = store.gameobj;
+            if( gameobj == undefined )
+                return;
             var gameid = gameobj['game'];
 
             if( gameid in games ) {
@@ -137,15 +142,12 @@ function handleSocket(socket) {
                 // Pull the player from the DB
                 db.collection('games')
                     .update({'_id': gameid},
-                            {'$pull': {'players': player}},
+                            {'$pull': {'players': gameobj['player']}},
                             {safe: true},
                             function(err, doc) {
                                 if( err ) {
-                                    res.send('Error in update: ' + err, 500);
                                     return;
                                 } else {
-                                    // We now have another player waiting
-                                    res.send('Success', 200);
                                 }
                             });
             }
@@ -217,6 +219,7 @@ app.put('/games/:id',
                 return;
             }
 
+            console.log('Adding ' + player['name'] + ' to ' + req.params.id);
             db.collection('games')
                 .update({'_id': gameid},
                         {'$push': {'players': player}},
