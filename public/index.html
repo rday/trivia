@@ -18,223 +18,108 @@
             list-style-type: none;
             display: inline;
         }
-            
-    </style>
-
+        .popup {
+            display: none;
+        }
+  </style>
 </head>
+<html>
 <body>
-<div class="row-fluid wideContent">
-    <div class="span3" id="playerinfo">
-        <label for="playername">Player Name</label>
-        <input type="text" name="playername" id="playername" />
-    </div>
-    <div id="content" class="span3">
-        <label for="newgame">Create Game</label>
-        <input type="text" name="newgame" id="newgame" />
-        <button onclick="createGame()">Create Game</button>
-        <fieldset>
-            <legend>Open Games</legend>
-            <div id="games"></div>
-        </fieldset>
-    </div>      
+<div class="modal popup" id="login-modal">
+  <div class="modal-header">
+    <h3>Enter a Playername</h3>
+  </div>
+  <div class="modal-body">
+    <label for="playername">Name</label>
+    <input type="text" id="playername" />
+  </div>
+  <div class="modal-footer">
+    <a href="#" class="btn btn-primary" id="start-btn">Start</a>
+  </div>
 </div>
 
-<div id="thegame" class="modal" style="display:none">
-    <div class="modal-header">
-        <h3 id="gamename">Game Name</h3>
-    </div>
-    <div class="modal-body">
-        <label for="players">Players</label>
-        <ul id="players"></ul>
-        <span id="gamescreen">Waiting For Players</span>
-    </div>
-    <div class="modal-footer">
-       <a href="#" onclick="startGame()" class="btn btn-primary">Start</a> 
-    </div>
+<div class="modal popup" id="game-modal">
+  <div class="modal-header">
+    <h3>Game</h3>
+  </div>
+  <div class="modal-body">
+    <label for="players">Players</label>
+    <ul id="players"></ul>
+    <h3 name="spanishword"></h3>
+    <h2 name="timeleft"></h2>
+  </div>
+  <div class="modal-footer">
+    <a href="#" class="btn btn-primary" id="ready-btn">Ready</a>
+  </div>
 </div>
 
+<div class="container">
+  <div class="row-fluid">
+    <div class="span3" id="games">
+      <fieldset>
+        <legend>Open Games</legend>
+        <ul id="game-list"></ul>
+        <label for="newgame">Create Game Name</label>
+        <input type="text" id="newgame" />
+        <button id="add-game">Create Game</button>
+      </fieldset>
+    </div>
+  </div>
+</div>
 </body>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
 <script src="js/bootstrap-modal.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="js/underscore-min.js"></script>
+<script src="js/backbone-min.js"></script>
+<script src="js/jquery.cookie.js"></script>
+<script src="js/funcs.js"></script>
+<script src="js/Game.js"></script>
+<script src="js/Question.js"></script>
 <script type="text/javascript">
-    var score = 0;
-    var socket = null;
-    var tmrCountDown;
-    var countDownLeft = 3;
-    var q = 0;
-    var questions = [{'word':'hola',
-                      'choices':['hello','goodbye','peanut'],
-                      'answer':0},
-                     {'word':'ventana',
-                      'choices':['door','wall','window'],
-                      'answer':2},
-                     {'word':'trabajar',
-                      'choices':['to play','to work','to listen'],
-                      'answer':2}];
-
-    function nextQuestion() {
-        var question = questions[q];
-
-//        $('#gamescreen').html('<fieldset><legend>'+question['word']+'</legend>'+
-  //              '
+(function ($) {
+window.AppView = Backbone.View.extend({
+  el: $("body"),
+  initialize: function() {
+    // Have we chosen a player name yet?
+    if( config.get('player') == null ) {
+        $("#login-modal").modal("show");
+        return;
     }
 
-    function countDown() {
-        if( countDownLeft > 0 ) {
-            $('#gamescreen').html(countDownLeft--);
-        } else {
-            $('#gamescreen').html('Go!!!');
-            clearInterval(tmrCountDown);
-            countDownLeft = 5;
-            nextQuestion();
-        }
-    }
+    // First populate our games collection
+    var that = this;
+    $.get('/games/',
+        function(data, status, xhr) {
+            console.log('Fetched games collection');
+            console.log(data);
+            that.games = new GamesCollection( data );
+            that.gamesview = new GamesCollectionView({collection: that.games});
+        });
+  },
+  events: {
+    "click #add-game": "addGame",
+    "click #start-btn": "addPlayer",
+  },
+  addPlayer: function() {
+    config.set("player", $("#playername").val());
+    window.location.reload();
+  },
+  addGame: function() {
+    // Real quick game creation
+    var that = this;
+    var name = $('#newgame').val();
+    var game = {'name': name, 'players': [], active: false};
 
-    function startGame() {
-        // The server will know who we are by the session
-        socket.emit('playerready');
-    }
+    $.post('/games/', {'name': name},
+        function(data) {
+            console.log(data);
+            that.games.add(game);
+        });
+  }
+});
 
-    function joingame() {
-        var gameid = $('#thegame').data('id');
-
-        // Namespace to the game in progress
-        socket = io.connect('/' + gameid);
-        $('#thegame').modal('show');
-        $('#thegame').on('hidden',
-                function() {
-                    socket.emit('disconnect');
-                });
-        gamestats();
-
-        socket.on('connect',
-                    function() {
-                        console.log('Connected');
-
-                        socket.on('startgame',
-                            function(data) {
-                                console.log(data);
-                            });
-
-                        socket.on('starttimer',
-                            function() {
-                                tmrCountDown = setInterval(countDown, 1000);
-                            });
-
-                        // Whenever another player signals ready,
-                        // we are told.
-                        socket.on('playerready',
-                            function(gameobj) {
-                                console.log(gameobj);
-                                var player = gameobj['player'];
-
-                                $('#players').find('li').each(
-                                    function(i, e) {
-                                        console.log(e);
-                                        console.log($(e).data('player'));
-                                        if( $(e).data('player') == player ) {
-                                            $(e).html(player+': ready');
-                                        }
-                                    });
-                            });
-
-                        // If a player leaves we are told
-                        socket.of('playerleft',
-                            function(gameobj) {
-                                var player = gameobj['player'];
-
-                                $('#players').find('li').each(
-                                    function(i, e) {
-                                        if( $(e).data('player') == player ) {
-                                            $(e).remove();
-                                        }
-                                    });
-                                console.log('Somebody left: ' + gameobj['player']);
-                            });
-
-                        // When a new player joins the game, we are told
-                        socket.on('playerjoin',
-                            function(player) {
-                                console.log(player);
-                                var item = $('<li>'+player['player']+
-                                            ':'+
-                                            player['status']+
-                                            '</li>');
-                                item.data('player', player['player']);
-                                item.appendTo($('#players'));
-                                console.log('Got join');
-                            });
-
-                        // Tell the server we have joined the game
-                        var gameobj = {'game': gameid,
-                                       'player': $('#playername').val()};
-                        socket.emit('playerjoin', gameobj);
-                    });
-    }
-
-    function createGame() {
-        var name = $('[name=newgame]').val();
-        var game = {'name': name, 'players': [], active: false};
-
-        $.post('/games/', {'name': name},
-                function(data) {
-                    console.log(data);
-                    });
-    }
-
-    function gamestats() {
-        var game = $('#thegame');
-        var gameid = game.data('id');
-
-        $.get('/games/' + gameid,
-                function(data, status, xhr) {
-                    game.find('h3').html(data.name);
-                    $('#players').html('');
-                        
-                    for(i in data.players) {
-                        var item = $('<li>'+data.players[i].name+': waiting</li>');
-                        item.data('player', data.players[i].name);
-                        item.appendTo($('#players'));
-                    }
-                });
-    }
-
-    function getGames() {
-        $.get('/games/',
-                function(data, status, xhr) {
-                    var list = $('<ul/>');
-
-                    $.each(data,
-                        function(i, v) {
-                            console.log(v);
-                            var item = $('<li>'+v.name+'</li>');
-                            item.click(
-                                function() {
-                                    var player = {
-                                        'player': $('#playername').val(),
-                                        };
-
-                                    var obj = {
-                                        url: '/games/'+v._id,
-                                        data: player,
-                                        type: 'PUT',
-                                        success: joingame
-                                        };
-                                    // Record our gameid in the modal
-                                    $('#thegame').data('id', v._id);
-                                    $.ajax(obj);
-                                });
-                            list.append(item);
-                        });
-                            
-                    $('#games').html('').append(list);
-                });
-    }
-
-    $(document).ready(function() {
-            getGames();
-            });
-
+var appview = new AppView;
+})(jQuery);
 </script>
 </html>
