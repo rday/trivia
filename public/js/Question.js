@@ -19,6 +19,7 @@
         this.game = options.game;
         this.socket = options.socket;
         this.current = 0;
+        this.finalscore = 0;
         this.questions = [{'word':'hola',
                            'choices':['hello','goodbye','peanut'],
                            'answer':0},
@@ -35,15 +36,19 @@
     },
     answer: function(e) {
         console.log(e);
+        var answer = e.currentTarget.innerText;
+        this.finalscore = this.score;
+        console.log('You chose ' + answer + ' at ' + this.finalscore);
         this.socket.emit('answer', e);
     },
     render: function() {
+        var that = this;
         var question = this.questions[this.current++];
         var buttons = $(this.el).find('.modal-footer');
         buttons.html('');
 
-        $(this.el).find('.modal-header h3')
-                  .html('Translate');
+        $(this.el).find('.modal-body')
+                  .html('Please translate: ' + question['word']);
         $.each(question['choices'],
             function(i, v) {
                 console.log(v);
@@ -51,6 +56,18 @@
                 btn.appendTo(buttons);
             });
         $(this.el).modal('show');
+        var progress = $('#timerbar').width() * .1;
+        this.score = 1000;
+        var tmr = setInterval(
+                function() {
+                    if( $('#timerbar').width() <= 0 ) {
+                        clearInterval(tmr);
+                        $(that.el).find('.modal-body')
+                                  .html('You scored: ' + that.finalscore);
+                    }
+                    $('#timerbar').width($('#timerbar').width()-progress);
+                    that.score -= 50;
+                }, 500);
     }
   });
 

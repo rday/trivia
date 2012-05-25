@@ -82,12 +82,13 @@
                 gameview.tmrCountDown = setInterval(
                     function() {
                         if( gameview.countDown > 0 ) {
-                            $(gameview.el).html(gameview.countDown--);
+                            $(gameview.el).find('.modal-body').html(gameview.countDown--);
                         } else {
                             $(gameview.el).html('Go!!');
                             clearInterval(gameview.tmrCountDown);
                             v = new QuestionView({game: gameview.game,
                                                   socket:socket});
+                            $(gameview.el).modal('hide');
                         }
                     }, 1000);
             });
